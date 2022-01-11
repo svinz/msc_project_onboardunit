@@ -1,0 +1,8 @@
+aiohttp
+asn1tools
+asyncio_mqtt
+click
+gps
+PyYAML
+python-json-logger
+sslkeylog

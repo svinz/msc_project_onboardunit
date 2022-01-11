@@ -1,0 +1,32 @@
+version: "3"
+services: 
+    obu:
+        image: registry.gitlab.com/svinz2/onboardunit:master
+        restart: unless-stopped
+        volumes: 
+            - ./certs:/usr/src/app/certs:ro
+            - ./logs:/usr/src/app/logs:rw
+            - ./sslkeylog:/usr/src/app/sslkeylog:rw
+        # devices:
+        #     - "/dev/ttyUSB0:/dev/ttyUSB0"
+        #command: sleep 1000000
+        network_mode: "host"
+        command: sh startClient.sh
+        depends_on:
+          - tshark
+    tshark:
+        image: registry.gitlab.com/svinz2/nwixn-tshark:master
+        restart: unless-stopped
+        volumes: 
+            - /home/pi/logTshark/captures:/data:rw
+        network_mode: "host"
+        cap_add:
+            - NET_RAW
+            - NET_ADMIN
+        environment:
+            #IFACE: wlan0
+            #Filter: drop SSH packages on port 22, drop ARP and drop MDNS-protocole. filter on ip for wlan and eth0 to avoid 127.0.0.1 
+            FILTER: not port 22 and not arp and not udp dst port 5353 and host 192.168.1.247 or host 192.168.2.247
+            FILENAME: obu
+        user: root
+        command: /bin/sh -c /run.sh

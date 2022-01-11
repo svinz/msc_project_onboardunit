@@ -1,0 +1,53 @@
+#Using this article as inspiration:
+#https://stackoverflow.com/questions/61430005/gitlab-ci-cd-building-multiarch-docker-images
+variables:
+  PLATFORM: linux/amd64,linux/arm/v7
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_DRIVER: overlay2
+
+stages:
+    - DockerLintTest #Test to check the linting of the Dockerfile
+    - build #Building imange
+    - pythonLintTest #Check python linting
+    - DeployTest #For deployment
+
+lintTest-dockerfile:
+  only: #only triggers if there have been a change in the Dockerfile
+    changes:
+      - Dockerfile
+  image: docker:latest
+  stage: DockerLintTest
+  services:
+    - docker:dind	
+  script:
+    - docker run --rm -i -v ${PWD}/LintTest/.hadolint.yaml:/.hadolint.yaml hadolint/hadolint < Dockerfile
+
+lintTest-python:
+  image: docker:latest
+  stage: pythonLintTest
+  services:
+    - docker:dind	
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker run --rm -i -v ${PWD}/LintTest/:/LintTest/ "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" sh -c 'cd /usr/src/ && pip install pylint && pylint --rcfile=/LintTest/.pylintrc  app'
+
+
+build:
+  except: 
+    changes:  #Dont build if there is changes to following files:
+      - README.md
+      - images/*
+  # Official docker image.
+  image: jdrouet/docker-with-buildx:stable
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 
+  script:
+    - docker buildx create --use
+    - docker buildx build --push --platform $PLATFORM --target prod --tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" .
+
+

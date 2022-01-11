@@ -1,0 +1,4 @@
+[MESSAGES CONTROL]
+#disable all warnings, recommandation and convetions + some errors
+disable=
+    W,R,C,E1120
